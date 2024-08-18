@@ -1,39 +1,36 @@
-import groq
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.llms import Ollama
 import streamlit as st
+import os
+from dotenv import load_dotenv
 
-with st.sidebar:
-    st.title('🤖💬 Groq Chatbot')
-    if 'GROQ_API_KEY' in st.secrets:
-        st.success('API key already provided!', icon='✅')
-        groq.api_key = st.secrets['GROQ_API_KEY']
-    else:
-        groq.api_key = st.text_input('Enter Groq API token:', type='password')
-        if not groq.api_key:
-            st.warning('Please enter your credentials!', icon='⚠️')
-        else:
-            st.success('Proceed to entering your prompt message!', icon='👉')
+# Load environment variables
+load_dotenv()
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Set environment variables (uncomment if needed)
+# os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"] = "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"
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Prompt template with a better structure
+prompt = ChatPromptTemplate.from_messages(
+    [("system", "You are a helpful assistant. Please respond to the user's queries."),
+     ("user", "{question}")
+    ]
+)
 
-if prompt := st.chat_input("What is up?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        full_response = ""
+# Streamlit framework setup
+st.title('LLM ChatBot')
+input_text = st.text_input("Search the topic you want.")
 
-        # Use Groq API for chat completion
-        response = groq.ChatCompletion.create(
-            model="llama3-8b-8192",  # Adjust this if Groq uses different model identifiers
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-        )
+# Llama LLM setup
+llm = Ollama(model="llama2")
+output_parser = StrOutputParser()
+chain = prompt | llm | output_parser
 
-        full_response = response['choices'][0]['message']['content']
-        message_placeholder.markdown(full_response)
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+# Process input and display output
+if input_text:
+    response = chain.invoke({"question": input_text})
+    st.write(response)
